@@ -12,6 +12,16 @@ from PIL import Image, ImageDraw, ImageFont, ImageOps, ImageChops, ImageFilter
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ASSETS = os.path.join(HERE, "assets")
+if not os.path.exists(os.path.join(ASSETS, "bg_clean.png")) and \
+        os.path.exists(os.path.join(HERE, "bg_clean.png")):
+    ASSETS = HERE          # files were uploaded without the 'assets' folder
+
+REQUIRED_ASSETS = ["bg_clean.png", "logo_white.png", "Poppins-ExtraBold.ttf",
+                   "LiberationSans-Regular.ttf"]
+
+
+def missing_assets():
+    return [n for n in REQUIRED_ASSETS if not os.path.exists(os.path.join(ASSETS, n))]
 
 W, H = 1080, 1350
 MARGIN = 96

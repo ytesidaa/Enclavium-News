@@ -9,7 +9,9 @@ from urllib.parse import quote, unquote
 import feedparser
 import requests
 
-from card import make_card
+import traceback
+
+from card import make_card, missing_assets, ASSETS
 
 # ---------------------------------------------------------------------------
 # CONFIG
@@ -248,11 +250,13 @@ def build_card(entry, source_cfg, analysis):
         return out, credit
     except Exception as e:
         print(f"  card generation failed ({e}); retrying without photo")
+        traceback.print_exc()
         try:
             make_card(analysis["id_title"], analysis["highlight"], out, photo=None)
             return out, None
         except Exception as e2:
             print(f"  text-only card failed too: {e2}")
+            traceback.print_exc()
             return None, None
 
 
@@ -291,6 +295,13 @@ def main():
     if not GEMINI_API_KEY:
         print("ERROR: GEMINI_API_KEY environment variable is not set.")
         sys.exit(1)
+
+    miss = missing_assets()
+    if miss:
+        print(f"WARNING: design files not found in '{ASSETS}': {', '.join(miss)}")
+        print("         -> image cards cannot be made, posts fall back to plain text.")
+    else:
+        print(f"Design files OK ({ASSETS})")
 
     seen_ids = load_seen()
     seen_set = set(seen_ids)
