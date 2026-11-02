@@ -125,6 +125,46 @@ def _apply_photo(img, path, style="natural"):
 
 
 # --------------------------------------------------------------------------
+# emblem layer (coin / platform logo as a round badge)
+# --------------------------------------------------------------------------
+def _round_logo(path, size):
+    im = Image.open(path).convert("RGBA")
+    w, h = im.size
+    m = min(w, h)
+    im = im.crop(((w - m) // 2, (h - m) // 2, (w + m) // 2, (h + m) // 2))
+    im = im.resize((size, size), Image.LANCZOS).filter(
+        ImageFilter.UnsharpMask(radius=2, percent=70, threshold=2))
+    mask = Image.new("L", (size * 4, size * 4), 0)
+    ImageDraw.Draw(mask).ellipse((0, 0, size * 4 - 1, size * 4 - 1), fill=255)
+    mask = mask.resize((size, size), Image.LANCZOS)
+    im.putalpha(ImageChops.multiply(im.getchannel("A"), mask))
+    return im
+
+
+def _apply_emblem(img, path, size=400, cx=W // 2, cy=430):
+    """Logo as a round badge in the photo area, with a soft red glow."""
+    glow = Image.new("L", (W, PHOTO_H), 0)
+    gd = ImageDraw.Draw(glow)
+    r = size // 2 + 70
+    gd.ellipse((cx - r, cy - r, cx + r, cy + r), fill=255)
+    glow = glow.filter(ImageFilter.GaussianBlur(70)).point(lambda v: int(v * 0.55))
+    img.paste(Image.new("RGB", (W, PHOTO_H), (235, 22, 38)), (0, 0), glow)
+
+    with Image.open(path) as probe:                  # don't blow up tiny logos too much
+        size = min(size, max(280, int(min(probe.size) * 3.3)))
+    badge = _round_logo(path, size)
+    ring = Image.new("RGBA", (size + 36, size + 36), (0, 0, 0, 0))
+    ImageDraw.Draw(ring).ellipse((1, 1, size + 34, size + 34), outline=(255, 255, 255, 90), width=3)
+    img.paste(ring, (cx - (size + 36) // 2, cy - (size + 36) // 2), ring)
+
+    shadow = Image.new("L", (W, PHOTO_H), 0)
+    ImageDraw.Draw(shadow).ellipse((cx - size // 2, cy - size // 2 + 14, cx + size // 2, cy + size // 2 + 14), fill=255)
+    shadow = shadow.filter(ImageFilter.GaussianBlur(24)).point(lambda v: int(v * 0.6))
+    img.paste(Image.new("RGB", (W, PHOTO_H), (0, 0, 0)), (0, 0), shadow)
+    img.paste(badge, (cx - size // 2, cy - size // 2), badge)
+
+
+# --------------------------------------------------------------------------
 # headline helpers
 # --------------------------------------------------------------------------
 def _mark_words(headline, highlight):
@@ -186,11 +226,13 @@ def _wrap(tokens, font, max_w):
 # main entry
 # --------------------------------------------------------------------------
 def make_card(headline, highlight, out_path, tag=None, source=None, nfa=False,
-              photo=None, photo_style="natural",
+              photo=None, photo_style="natural", emblem=None,
               glow=False, shadow=True):
     img = _background()
     if photo:
         _apply_photo(img, photo, photo_style)
+    elif emblem:
+        _apply_emblem(img, emblem)
     _chrome(img, nfa=nfa)
 
     footer_on = nfa or bool(source)
